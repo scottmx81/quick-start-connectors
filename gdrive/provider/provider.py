@@ -108,6 +108,10 @@ def request_credentials(access_token=None):
         raise AssertionError("No service account or oauth credentials provided")
 
 
+def escape(text: str) -> str:
+    return text.replace("'", "\\'")
+
+
 def search(query, access_token=None):
     service = build("drive", "v3", credentials=request_credentials(access_token))
 
@@ -121,7 +125,7 @@ def search(query, access_token=None):
         + " or ".join([f"mimeType = '{mime_type}'" for mime_type in SEARCH_MIME_TYPES])
         + ")",
         "("
-        + " or ".join([f"fullText contains '{word}'" for word in query_words])
+        + " or ".join([f"fullText contains '{escape(word)}'" for word in query_words])
         + ")",
     ]
 
