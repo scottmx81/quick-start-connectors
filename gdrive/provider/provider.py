@@ -142,6 +142,8 @@ def search(query, access_token=None):
                 pageSize=page_size,
                 fields=fields,
                 q=q,
+                includeItemsFromAllDrives=True,
+                supportsAllDrives=True,
             )
             .execute()
         )
