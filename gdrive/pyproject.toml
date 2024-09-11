@@ -18,6 +18,8 @@ google-auth-oauthlib = "^1.1.0"
 gunicorn = "^22.0.0"
 aiohttp = "^3.9.4"
 nltk = "^3.8.1"
+redis = "^5.0.8"
+cachetools = "^5.5.0"
 
 [tool.poetry.group.development.dependencies]
 black = "^24.3.0"
