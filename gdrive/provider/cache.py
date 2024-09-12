@@ -9,7 +9,7 @@ CACHE_TYPE_NONE = "none"
 CACHE_TYPE_MEMORY = "memory"
 CACHE_TYPE_REDIS = "redis"
 
-CACHE_EXPIRE_TIME = 60 * 5
+DEFAULT_CACHE_EXPIRE_TIME = 3600
 
 
 backend = None
@@ -29,10 +29,11 @@ class CacheBackend:
 
 
 class MemoryBackend(CacheBackend):
-    maxsize = 1000
-
-    def __init__(self):
-        self.ttl_cache = TTLCache(self.maxsize, CACHE_EXPIRE_TIME)
+    def __init__(self, config):
+        self.ttl_cache = TTLCache(
+            config.get("CACHE_MAXSIZE") or 1000,
+            config.get("CACHE_EXPIRE_TIME") or DEFAULT_CACHE_EXPIRE_TIME,
+        )
 
     def cache_document_text(self, document_id: str, text: str) -> None:
         cache_key = self.get_cache_key(document_id)
@@ -44,12 +45,18 @@ class MemoryBackend(CacheBackend):
 
 
 class RedisBackend(CacheBackend):
-    def __init__(self):
-        self.r = redis.Redis(host="localhost", port=6379, db=0, protocol=3)
+    def __init__(self, config):
+        self.r = redis.Redis(
+            host=config.get("REDIS_HOST") or "localhost",
+            port=config.get("REDIS_PORT") or 6379,
+            db=config.get("REDIS_DB") or 0,
+        )
+
+        self.expire_time = config.get("CACHE_EXPIRE_TIME") or DEFAULT_CACHE_EXPIRE_TIME
 
     def cache_document_text(self, document_id: str, text: str) -> None:
         cache_key = self.get_cache_key(document_id)
-        self.r.set(cache_key, text, CACHE_EXPIRE_TIME)
+        self.r.set(cache_key, text, self.expire_time)
 
     def get_document_text(self, document_id: str) -> str:
         cache_key = self.get_cache_key(document_id)
@@ -63,14 +70,14 @@ CACHE_BACKENDS = {
 }
 
 
-def init(type):
+def init(type, config):
     global backend
 
     if not type:
         return
 
     assert type in CACHE_BACKENDS, "Invalid cache backend"
-    backend = CACHE_BACKENDS[type]()
+    backend = CACHE_BACKENDS[type](config)
 
 
 def get_document_text(document_id) -> str:

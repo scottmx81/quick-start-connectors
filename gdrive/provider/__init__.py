@@ -34,5 +34,5 @@ def create_app():
     config_prefix = os.path.split(os.getcwd())[1].upper()
     flask_app.config.from_prefixed_env(config_prefix)
     flask_app.config["APP_ID"] = config_prefix
-    cache.init(flask_app.config.get("CACHE_TYPE"))
+    cache.init(flask_app.config.get("CACHE_TYPE"), flask_app.config)
     return flask_app
