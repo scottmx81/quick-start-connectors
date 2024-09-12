@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 def process_data_with_service(data, request_credentials: Credentials):
-    results = []
+    results: list[dict] = []
     files = data.get("files", [])
     if not files:
         logger.debug("No files found.")
@@ -66,7 +66,7 @@ def process_data_with_service(data, request_credentials: Credentials):
     return results
 
 
-def retrieve_file_texts(files, request_credentials: Credentials) -> [str, str]:
+def retrieve_file_texts(files, request_credentials: Credentials) -> dict[str, str]:
     missing_ids_to_urls = {}
     id_to_texts = {}
 
