@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import redis
 from cachetools import TTLCache
 from flask import current_app as app
@@ -8,43 +10,74 @@ CACHE_TYPE_MEMORY = "memory"
 CACHE_TYPE_REDIS = "redis"
 
 CACHE_EXPIRE_TIME = 60 * 5
-CACHE_MEMORY_MAXSIZE = 1000
 
-cache_type = CACHE_TYPE_NONE
-memory_cache = None
-r = None
+
+backend = None
+
+
+class CacheBackend:
+    def get_cache_key(self, document_id: str) -> str:
+        return f"document_text_{document_id}"
+
+    @abstractmethod
+    def cache_document_text(self, document_id, text):
+        pass
+
+    @abstractmethod
+    def get_document_text(self, document_id: str) -> str:
+        pass
+
+
+class MemoryBackend(CacheBackend):
+    maxsize = 1000
+
+    def __init__(self):
+        self.ttl_cache = TTLCache(self.maxsize, CACHE_EXPIRE_TIME)
+
+    def cache_document_text(self, document_id: str, text: str) -> None:
+        cache_key = self.get_cache_key(document_id)
+        self.ttl_cache[cache_key] = text
+
+    def get_document_text(self, document_id: str):
+        cache_key = self.get_cache_key(document_id)
+        return self.ttl_cache.get(cache_key)
+
+
+class RedisBackend(CacheBackend):
+    def __init__(self):
+        self.r = redis.Redis(host="localhost", port=6379, db=0, protocol=3)
+
+    def cache_document_text(self, document_id: str, text: str) -> None:
+        cache_key = self.get_cache_key(document_id)
+        self.r.set(cache_key, text, CACHE_EXPIRE_TIME)
+
+    def get_document_text(self, document_id: str) -> str:
+        cache_key = self.get_cache_key(document_id)
+        document_text = self.r.get(cache_key)
+        return document_text.decode() if document_text else None
+
+
+CACHE_BACKENDS = {
+    CACHE_TYPE_MEMORY: MemoryBackend,
+    CACHE_TYPE_REDIS: RedisBackend,
+}
 
 
 def init(type):
-    global cache_type
-    global memory_cache
-    global r
+    global backend
 
-    if type:
-        cache_type = type
-    else:
-        cache_type = CACHE_TYPE_NONE
+    if not type:
+        return
 
-    if type == CACHE_TYPE_MEMORY:
-        memory_cache = TTLCache(CACHE_MEMORY_MAXSIZE, CACHE_EXPIRE_TIME)
-
-    if type == CACHE_TYPE_REDIS:
-        r = redis.Redis(host="localhost", port=6379, db=0, protocol=3)
+    assert type in CACHE_BACKENDS, "Invalid cache backend"
+    backend = CACHE_BACKENDS[type]()
 
 
-def get(key) -> str:
-    value = None
-
-    if cache_type == CACHE_TYPE_MEMORY:
-        value = memory_cache.get(key)
-    elif cache_type == CACHE_TYPE_REDIS:
-        value = r.get(key).decode()
-
-    return value
+def get_document_text(document_id) -> str:
+    assert backend, "Caching not configured"
+    return backend.get_document_text(document_id)
 
 
-def set(key, value):
-    if cache_type == CACHE_TYPE_MEMORY:
-        memory_cache[key] = value
-    if cache_type == CACHE_TYPE_REDIS:
-        r.set(key, value, CACHE_EXPIRE_TIME)
+def cache_document_text(document_id: str, value: str):
+    assert backend, "Caching not configured"
+    backend.cache_document_text(document_id, value)

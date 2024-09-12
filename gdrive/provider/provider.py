@@ -77,8 +77,7 @@ def retrieve_file_texts(files, request_credentials: Credentials) -> [str, str]:
         if id is None:
             continue
 
-        cache_key = f"file_text_{id}"
-        cached_text = cache.get(cache_key)
+        cached_text = cache.get_document_text(id) if cache.backend else None
 
         if cached_text is not None:
             id_to_texts[id] = cached_text
@@ -93,9 +92,9 @@ def retrieve_file_texts(files, request_credentials: Credentials) -> [str, str]:
             missing_ids_to_urls, request_credentials.token
         )
 
-        for key in downloaded_texts:
-            cache_key = f"file_text_{key}"
-            cache.set(cache_key, downloaded_texts[key])
+        if cache.backend:
+            for document_id in downloaded_texts:
+                cache.cache_document_text(document_id, downloaded_texts[document_id])
 
         id_to_texts.update(downloaded_texts)
 
