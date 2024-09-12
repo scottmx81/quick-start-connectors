@@ -20,7 +20,7 @@ class CacheBackend:
         return f"document_text_{document_id}"
 
     @abstractmethod
-    def cache_document_text(self, document_id: str, text: str) -> str:
+    def cache_document_text(self, document_id: str, text: str) -> None:
         pass
 
     @abstractmethod
