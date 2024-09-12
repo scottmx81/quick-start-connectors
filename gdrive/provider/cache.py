@@ -20,7 +20,7 @@ class CacheBackend:
         return f"document_text_{document_id}"
 
     @abstractmethod
-    def cache_document_text(self, document_id, text):
+    def cache_document_text(self, document_id: str, text: str) -> str:
         pass
 
     @abstractmethod
@@ -39,7 +39,7 @@ class MemoryBackend(CacheBackend):
         cache_key = self.get_cache_key(document_id)
         self.ttl_cache[cache_key] = text
 
-    def get_document_text(self, document_id: str):
+    def get_document_text(self, document_id: str) -> str:
         cache_key = self.get_cache_key(document_id)
         return self.ttl_cache.get(cache_key)
 
@@ -70,7 +70,7 @@ CACHE_BACKENDS = {
 }
 
 
-def init(type, config):
+def init(type: str, config) -> None:
     global backend
 
     if not type:
@@ -80,7 +80,7 @@ def init(type, config):
     backend = CACHE_BACKENDS[type](config)
 
 
-def get_document_text(document_id) -> str:
+def get_document_text(document_id: str) -> str:
     assert backend, "Caching not configured"
     return backend.get_document_text(document_id)
 
