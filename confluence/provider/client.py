@@ -29,7 +29,7 @@ class ConfluenceClient:
     CACHE_LIMIT_BYTES = 20 * 1024 * 1024  # 20 MB to bytes
 
     # Cache for token to organization cloud id mappings
-    org_ids = {}
+    org_ids: dict[str, str] = {}
 
     def __init__(
         self,
@@ -96,14 +96,11 @@ class ConfluenceClient:
 
         base_url = self._get_base_url(access_token)
         get_page_by_id_url = f"{base_url}/wiki/api/v2/pages/{page_id}"
-
-        headers = {}
-        self._add_auth_header(headers, access_token)
         params = {"body-format": self.PAGE_BODY_FORMAT}
 
         async with self.session.get(
             get_page_by_id_url,
-            headers=headers,
+            headers=self._get_headers(access_token),
             params=params,
         ) as response:
             if not response.ok:
@@ -137,12 +134,9 @@ class ConfluenceClient:
             "limit": self.search_limit,
         }
 
-        headers = {}
-        self._add_auth_header(headers, access_token)
-
         response = requests.get(
             search_url,
-            headers=headers,
+            headers=self._get_headers(access_token),
             params=params,
         )
 
@@ -153,7 +147,7 @@ class ConfluenceClient:
 
         return response.json().get("results", [])
 
-    def fetch_pages(self, pages, access_token):
+    def fetch_pages(self, pages, access_token: str | None = None):
         self._start_session()
         results = self.loop.run_until_complete(self._gather(pages, access_token))
         self._close_session_and_loop()
@@ -167,7 +161,9 @@ class ConfluenceClient:
             page for page in self.fetch_pages(pages, access_token) if page is not None
         ]
 
-    def _add_auth_header(self, headers, access_token):
+    def _get_headers(self, access_token: str | None = None) -> dict[str, str]:
+        headers = {}
+
         if access_token:
             headers["Authorization"] = f"Bearer {access_token}"
         else:
@@ -175,7 +171,9 @@ class ConfluenceClient:
             credentials_encoded = base64.b64encode(credentials.encode()).decode("ascii")
             headers["Authorization"] = f"Basic {credentials_encoded}"
 
-    def _get_base_url(self, access_token=None):
+        return headers
+
+    def _get_base_url(self, access_token: str | None = None):
         if not access_token:
             return self.service_base_url
 
@@ -184,12 +182,9 @@ class ConfluenceClient:
                 f"https://api.atlassian.com/ex/confluence/{self.org_ids[access_token]}"
             )
 
-        headers = {}
-        self._add_auth_header(headers, access_token)
-
         response = requests.get(
             "https://api.atlassian.com/oauth/token/accessible-resources",
-            headers=headers,
+            headers=self._get_headers(access_token),
         )
 
         if response.status_code != 200:
