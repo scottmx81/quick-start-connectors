@@ -12,9 +12,13 @@ BEARER_PREFIX = "Bearer "
 
 def search(body):
     logger.debug(f'Search request: {body["query"]}')
+    access_token = get_access_token()
+
+    if access_token == app.config.get("CONNECTOR_API_KEY", None):
+        access_token = None
 
     try:
-        data = provider.search(body["query"], get_access_token())
+        data = provider.search(body["query"], access_token)
         logger.info(f"Found {len(data)} results")
     except UpstreamProviderError as error:
         logger.error(f"Upstream search error: {error.message}")
