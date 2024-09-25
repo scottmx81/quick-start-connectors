@@ -46,6 +46,10 @@ following are enabled:
 * read:page:confluence
 * read:custom-content:confluence
 
+The `offline_access` scope must also be requested for refresh tokens to work. This scope does not appear in the
+list of scopes in the Atlassian OAuth permissions page, but it must be included in the scopes added to the connector
+configuration in Cohere dashboard.
+
 You must also configure the authorization settings. Go to the Authorization page, and configure the app to use the
 authorization type OAuth 2.0 (3L0). On the configuration page for the authorization page, enter the callback URL as:
 
@@ -71,7 +75,7 @@ curl  -X POST \
     "client_secret": "{CONFLUENCE-OAUTH-CLIENT-SECRET}",
     "authorize_url": "https://auth.atlassian.com/authorize?audience=api.atlassian.com&response_type=code&prompt=consent",
     "token_url": "https://auth.atlassian.com/oauth/token",
-    "scope": "read:content:confluence read:content-details:confluence read:page:confluence read:custom-content:confluence"
+    "scope": "read:content:confluence read:content-details:confluence read:page:confluence read:custom-content:confluence offline_access"
   }
 }'
 ```
