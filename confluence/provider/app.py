@@ -14,7 +14,14 @@ def search(body):
     logger.debug(f'Search request: {body["query"]}')
     access_token = get_access_token()
 
-    if access_token == app.config.get("CONNECTOR_API_KEY", None):
+    auth_method = app.config.get("AUTH_METHOD")
+    connector_api_key = app.config.get("CONNECTOR_API_KEY", None)
+
+    if auth_method == "service_auth" and access_token and not connector_api_key:
+        logger.error("Connector not configured to use API keys")
+        raise Unauthorized()
+
+    if access_token == connector_api_key:
         access_token = None
 
     try:

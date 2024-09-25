@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 client = None
 
 
-class ConfluenceClient:
+class BaseConfluenceClient:
     # Page consts
     PAGE_TYPE = "type"
     PAGE_BODY_FORMAT = "storage"
@@ -28,19 +28,7 @@ class ConfluenceClient:
     # Cache size limit to reduce memory over time
     CACHE_LIMIT_BYTES = 20 * 1024 * 1024  # 20 MB to bytes
 
-    # Cache for token to organization cloud id mappings
-    org_ids: dict[str, str] = {}
-
-    def __init__(
-        self,
-        service_base_url=None,
-        service_user=None,
-        service_api_token=None,
-        search_limit=10,
-    ):
-        self.service_base_url = service_base_url
-        self.service_user = service_user
-        self.service_api_token = service_api_token
+    def __init__(self, search_limit=10):
         self.search_limit = search_limit
         # Manually cache because functools.lru_cache does not support async methods
         self.cache = OrderedDict()
@@ -162,20 +150,40 @@ class ConfluenceClient:
         ]
 
     def _get_headers(self, access_token: str | None = None) -> dict[str, str]:
-        headers = {}
+        raise NotImplementedError()
 
-        if access_token:
-            headers["Authorization"] = f"Bearer {access_token}"
-        else:
-            credentials = f"{self.service_user}:{self.service_api_token}"
-            credentials_encoded = base64.b64encode(credentials.encode()).decode("ascii")
-            headers["Authorization"] = f"Basic {credentials_encoded}"
+    def _get_base_url(self, access_token: str | None = None):
+        raise NotImplementedError()
 
-        return headers
+
+class ServiceAuthConfluenceClient(BaseConfluenceClient):
+    def __init__(self, product_url, user, api_token, search_limit):
+        self.product_url = product_url
+        self.user = user
+        self.api_token = api_token
+        super().__init__(search_limit=search_limit)
+
+    def _get_base_url(self, access_token: str | None = None):
+        return self.product_url
+
+    def _get_headers(self, access_token: str | None = None) -> dict[str, str]:
+        credentials = f"{self.user}:{self.api_token}"
+        credentials_encoded = base64.b64encode(credentials.encode()).decode("ascii")
+
+        return {
+            "Authorization": f"Basic {credentials_encoded}",
+        }
+
+
+class OAuthConfluenceClient(BaseConfluenceClient):
+    # Cache for token to organization cloud id mappings
+    org_ids: dict[str, str] = {}
 
     def _get_base_url(self, access_token: str | None = None):
         if not access_token:
-            return self.service_base_url
+            raise AssertionError(
+                "Access token required to construct Confluence cloud URLs"
+            )
 
         if access_token in self.org_ids:
             return (
@@ -202,14 +210,39 @@ class ConfluenceClient:
 
         return f"https://api.atlassian.com/ex/confluence/{org_id}"
 
+    def _get_headers(self, access_token: str | None = None) -> dict[str, str]:
+        return {
+            "Authorization": f"Bearer {access_token}",
+        }
+
 
 def get_client():
     global client
+
     if client is None:
-        product_url = app.config.get("PRODUCT_URL")
-        user = app.config.get("USER")
-        api_token = app.config.get("API_TOKEN")
-        search_limit = app.config.get("SEARCH_LIMIT", 10)
-        client = ConfluenceClient(product_url, user, api_token, search_limit)
+        auth_method = app.config.get("AUTH_METHOD", "oauth")
+        assert auth_method in [
+            "oauth",
+            "service_auth",
+        ], 'CONFLUENCE_AUTH_METHOD must be "oauth" or "service_auth"'
+
+        try:
+            search_limit = int(app.config.get("SEARCH_LIMIT", 10))
+        except ValueError:
+            raise ValueError("SEARCH_LIMIT must be an integer")
+
+        if auth_method == "oauth":
+            client = OAuthConfluenceClient()
+        elif auth_method == "service_auth":
+            assert (
+                product_url := app.config.get("PRODUCT_URL")
+            ), "CONFLUENCE_PRODUCT_URL must be set"
+            assert (user := app.config.get("USER")), "CONFLUENCE_USER must be set"
+            assert (
+                api_token := app.config.get("API_TOKEN")
+            ), "CONFLUENCE_API_TOKEN must be set"
+            client = ServiceAuthConfluenceClient(
+                product_url, user, api_token, search_limit
+            )
 
     return client
