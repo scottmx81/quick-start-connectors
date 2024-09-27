@@ -2,9 +2,14 @@ import logging
 import os
 
 import connexion  # type: ignore
+import nltk
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# download nltk data
+nltk.download("stopwords")
+nltk.download("punkt")
 
 API_VERSION = "api.yaml"
 
