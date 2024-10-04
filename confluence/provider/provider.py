@@ -11,12 +11,13 @@ from .client import get_client
 logger = logging.getLogger(__name__)
 
 
-def search(query):
+def search(query, access_token):
     client = get_client()
-    pages = client.search(build_cql(query, "AND"))
+
+    pages = client.search(build_cql(query, "AND"), access_token)
 
     if not pages:
-        pages = client.search(build_cql(query, "OR"))
+        pages = client.search(build_cql(query, "OR"), access_token)
 
     return pages
 

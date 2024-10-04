@@ -16,7 +16,8 @@ asyncio = "^3.4.3"
 black = "^24.3.0"
 aiohttp = "^3.9.4"
 nltk = "^3.9.1"
-
+mypy = "^1.11.2"
+types-requests = "^2.32.0.20240914"
 
 
 [build-system]
