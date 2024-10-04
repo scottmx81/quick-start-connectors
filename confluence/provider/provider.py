@@ -5,6 +5,7 @@ import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 
+from . import EXTENDED_STOPWORDS
 from .client import get_client
 
 logger = logging.getLogger(__name__)
@@ -35,4 +36,5 @@ def build_cql(query: str, operator) -> str:
 def split_and_remove_stopwords(query: str):
     words = word_tokenize(query)
     stop_words = set(stopwords.words("english"))
+    stop_words.update(EXTENDED_STOPWORDS)
     return [word for word in words if word.lower() not in stop_words]
