@@ -105,6 +105,13 @@ CONFLUENCE_AUTH_METHOD
 This variable is used to configure the connector to use service auth or OAuth authentication. The valid
 values are `service_auth` and `oauth`. The default is to run the connector in OAuth mode.
 
+```
+CONFLUENCE_EXTENDED_STOPWORDS
+```
+
+The connector filters out stop words from NLTK. This variable can be used to extend the NLK stop word list with
+a more comprehensive list.
+
 These variables can optionally be put into a `.env` file for development.
 A `.env-template` file is provided with all the environment variables that are used by this demo.
 
