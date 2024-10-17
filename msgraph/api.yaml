@@ -1,0 +1,65 @@
+openapi: 3.0.3
+info:
+  title: Search Provider API
+  version: 0.0.1
+paths:
+  /search:
+    post:
+      description: >-
+        <p>Searches the connected data source for documents releated to the query and returns a set of key-value pairs representing the found documents.</p>
+      operationId: search
+      summary: Perform a search
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - query
+              properties:
+                query:
+                  description: >-
+                    A plain-text query string to be used to search for relevant documents.
+                  type: string
+                  minLength: 1
+            example:
+              query: 'stainless propane griddle'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties:
+                        type: string
+        '400':
+          description: Bad request
+        default:
+          description: Error response
+
+  /authorize:
+    get:
+      operationId: authorize
+      description: Redirect to provider for OAuth when applicable.
+      responses:
+        '302':
+          description: Successful response with redirect to provider OAuth.
+
+  /token:
+    get:
+      operationId: token
+      description: Exchange code for token, when redirected back from provider OAuth 2.0 authorize page.
+      responses:
+        '200':
+          description: Code was successfully exchanged for a token.
+          content:
+            text/html:
+              schema:
+                type: string
