@@ -128,7 +128,7 @@ for production environment. For production permission configuration, please refe
 your systems administrator for guidance.
 
 Once you have Microsoft 365 configured with an app registration for this search provider,
-take the credentials (:code:`GRAPH_TENANT_ID`, :code:`GRAPH_CLIENT_ID` and :code:`GRAPH_CLIENT_SECRET`)
+take the credentials (:code:`MSGRAPH_TENANT_ID`, :code:`MSGRAPH_CLIENT_ID` and :code:`MSGRAPH_CLIENT_SECRET`)
 and put them into a :code:`.env` file or set them as environment variables in your preferred way.
 
 Create a virtual environment and install dependencies with poetry. We recommend using in-project virtual environments:
