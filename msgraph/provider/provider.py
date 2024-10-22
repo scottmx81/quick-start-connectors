@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from flask import current_app as app
 from nltk.corpus import stopwords
@@ -7,6 +8,7 @@ from nltk.tokenize import word_tokenize
 
 from dotenv import load_dotenv
 
+from . import EXTENDED_STOPWORDS
 from .client import get_client
 from .unstructured import get_unstructured_client
 
@@ -18,8 +20,20 @@ logger = logging.getLogger(__name__)
 
 def search(query, access_token=None):
     client = get_client(access_token)
-    search_response = client.search(query)
+    search_response = client.search(build_query(query))
     return process_data_with_service(search_response, client)
+
+
+def build_query(query):
+    stripped_query = re.sub("\W+", " ", query)
+    return remove_stopwords(stripped_query)
+
+
+def remove_stopwords(query: str):
+    words = word_tokenize(query)
+    stop_words = set(stopwords.words("english"))
+    stop_words.update(EXTENDED_STOPWORDS)
+    return ' '.join([word for word in words if word.lower() not in stop_words])
 
 
 def process_data_with_service(search_response, client):
@@ -94,14 +108,19 @@ def process_items_with_unstructured(items):
     ]
     for file in files:
         logger.info(f"Check with unstructured: {file[1]}")
-    if len(files) > 0:
-        logger.info("Found files.")
-        #unstructured_client = get_unstructured_client()
-        #unstructured_client.start_session()
-        #unstructured_content = unstructured_client.batch_get(files)
-        #unstructured_content = []
-        pass
 
+    if not len(files):
+        return
+    
+    logger.info("Found files.")
+    unstructured_client = get_unstructured_client()
+    unstructured_client.start_session()
+    unstructured_content = unstructured_client.batch_get(files)
+
+    for item in items:
+        if item['hit']['resource']['name'] in unstructured_content:
+            unstructured_text = 'loop over unstructuredcontent here'
+            item["text"] = unstructured_text
 
 def serialize_results(items):
     results = []

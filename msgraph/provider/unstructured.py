@@ -1,37 +1,41 @@
+import sys
 import asyncio
-import os
 import aiohttp
 import logging
-import sys
 import functools
 from collections import OrderedDict
-
+from flask import current_app as app
 
 logger = logging.getLogger(__name__)
 
 CACHE_LIMIT_BYTES = 20 * 1024 * 1024  # 20 MB to bytes
+TIMEOUT_SECONDS = 20
 
-
-TIMEOUT_SECONDS = 3600
-
-client_timeout = aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)
-client_session = None
 unstructured = None
 
 
 class UnstructuredRequestSession:
-    def __init__(self, unstructured_base_url, api_key, session):
+    def __init__(self, unstructured_base_url, api_key):
         self.get_content_url = f"{unstructured_base_url}/general/v0/general"
-        self.headers = {"unstructured-api-key": api_key} if api_key else None
-        self.session = session
-
+        self.api_key = api_key
         # Manually cache because functools.lru_cache does not support async methods
         self.cache = OrderedDict()
+        self.start_session()
+
+    def start_session(self):
+        self.loop = asyncio.new_event_loop()
+        # Create ClientTimeout object to apply timeout for every request in the session
+        client_timeout = aiohttp.ClientTimeout(total=TIMEOUT_SECONDS)
+        self.session = aiohttp.ClientSession(loop=self.loop, timeout=client_timeout)
+
+    def close_loop(self):
+        self.loop.stop()
+        self.loop.close()
 
     def cache_size(self):
         # Calculate the total size of values in bytes
         total_size_bytes = functools.reduce(
-             lambda a, b: a + b, map(lambda v: sys.getsizeof(v), self.cache.values()), 0
+            lambda a, b: a + b, map(lambda v: sys.getsizeof(v), self.cache.values()), 0
         )
 
         return total_size_bytes
@@ -61,21 +65,19 @@ class UnstructuredRequestSession:
         # Use FormData to pass in files parameter
         data = aiohttp.FormData()
         data.add_field("files", file_data, filename=file_name)
-        print('get unstructured content')
-        print(self.get_content_url)
+
+        # API key optional if self-hosted
+        headers = {} if self.api_key is None else {"unstructured-api-key": self.api_key}
 
         async with self.session.post(
             self.get_content_url,
-            headers=self.headers,
+            headers=headers,
             data=data,
         ) as response:
-            print("got response from unstructured")
             content = await response.json()
-
             if not response.ok:
                 logger.error(f"Error response from Unstructured: {content}")
                 return None
-            print('got unstructured response')
 
             self.cache_put(file_id, (file_name, content))
 
@@ -85,43 +87,32 @@ class UnstructuredRequestSession:
         tasks = [self.get_unstructured_content(file) for file in files]
         return await asyncio.gather(*tasks)
 
-    async def batch_get(self, files):
-        print("Unstructured batch get")
-
-        loop = asyncio.get_event_loop()
-        results = await self.gather(files)
-
-        print("Unstructured batch get got results")
+    def batch_get(self, files):
+        results = self.loop.run_until_complete(self.gather(files))
         results = [result for result in results if result is not None]
 
         result_dict = {
-         filename: content for filename, content in results if content is not None
+            filename: content for filename, content in results if content is not None
         }
-#
-#         # Close session and loop
-#         self.loop.run_until_complete(self.close_session())
-#         self.close_loop()
-#
+
+        # Close session and loop
+        self.loop.run_until_complete(self.close_session())
+        self.close_loop()
+
         return result_dict
 
 
 def get_unstructured_client():
     global unstructured
-    global client_session
 
     if unstructured is not None:
         return unstructured
 
-    if not client_session:
-        loop = asyncio.get_event_loop()
-        client_session = aiohttp.ClientSession(loop=loop, timeout=client_timeout)
-
-    # Fetch environment variables
     assert (
-        unstructured_base_url := os.environ.get("MSGRAPH_UNSTRUCTURED_BASE_URL")
+        unstructured_base_url := app.config.get("UNSTRUCTURED_BASE_URL")
     ), "MSGRAPH_UNSTRUCTURED_BASE_URL must be set"
+    api_key = app.config.get("UNSTRUCTURED_API_KEY", None)
 
-    api_key = os.environ.get("MSGRAPH_UNSTRUCTURED_API_KEY")
-    unstructured = UnstructuredRequestSession(unstructured_base_url, api_key, session=client_session)
+    unstructured = UnstructuredRequestSession(unstructured_base_url, api_key)
 
     return unstructured

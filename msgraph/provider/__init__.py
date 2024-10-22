@@ -11,9 +11,11 @@ load_dotenv()
 # download nltk data
 nltk.download("stopwords")
 nltk.download("punkt")
+nltk.download("punkt_tab")
 
 
 APP_VERSION = "api.yaml"
+EXTENDED_STOPWORDS = set()
 
 
 class UpstreamProviderError(Exception):
@@ -37,4 +39,8 @@ def create_app() -> connexion.FlaskApp:
     ].upper()  # Current directory name, upper-cased
     flask_app.config.from_prefixed_env(config_prefix)
     flask_app.config["APP_ID"] = config_prefix
+
+    if extended_stopwords := flask_app.config.get("EXTENDED_STOPWORDS", ""):
+        EXTENDED_STOPWORDS.update(set(extended_stopwords.split()))
+
     return flask_app
