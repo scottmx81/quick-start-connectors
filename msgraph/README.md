@@ -1,63 +1,104 @@
 # Microsoft 365
 
-This package is a utility for connecting Cohere to Microsoft 365.
+This package is a utility for connecting Cohere to Microsoft 365. It features a simple local development setup.
 
-It uses Microsoft Graph API run the search query and return matching messages.
+It uses Microsoft Graph API run the search query and return matching results.
 
 ## Configuration
 
-To use this search provider, you must have access to Microsoft 365, with API
-credentials configured. This search provider requests default permissions with scope
-`https://graph.microsoft.com/.default offline_access`. This requires the permissions for the
-client credential to be configured in Azure AD. It is important that the following
-permissions must be allowed for MS Graph API:
+1. Register a new Microsoft App
 
-* `Mail.Read`
-* `offline_access`
+Running this connector requires access to Microsoft 365. For development purposes,
+you can register for the Microsoft 365 developer program, which will grant temporary
+access to a Microsoft 365.
 
-The app registration for the provider in Microsoft Entra admin center requires
-permissions to read mail messages.
+For the connector to work, you must create a new application. To do this, go to the
+Microsoft Entra admin center:
 
-This search provider requires the following environment variables to be set:
+https://entra.microsoft.com/
 
-* `MSGRAPH_GRAPH_TENANT_ID`
-* `MSGRAPH_GRAPH_CLIENT_ID`
-* `MSGRAPH_GRAPH_CLIENT_SECRET`
-* `MSGRAPH_CREDENTIAL`
+Navigate to Applications > App registrations > New registration option.
 
-These can be read from a .env file. See `.env-template`.
+Select "Web" as the platform, and add a redirect URI as needed. For App auth, you can set the URI to the server you're hosting the connector on. For Delegated auth, set the URI to `https://api.cohere.com/v1/connectors/oauth/token`.
 
-The values for `MSGRAPH_TENANT_ID`, `MSGRAPH_CLIENT_ID` and `MSGRAPH_CLIENT_SECRET` come from
-Microsoft 365 admin. The value for `MSGRAPH_CREDENTIAL` contains a base64 encoded access token
-and refresh token values. To obtain the value for `MSGRAPH_CREDENTIAL`, you must go to the
-URL http://localhost:5000/authorize in your browser, and grant the application permission. The
-http://localhost:5000/autorize page will redirect to Microsoft 365. After granting permission
-on the Microsoft site, you will be redirected back to a page in the Flask app, which will display
-the value for the credential. You must copy the value in your browser, and paste it into the `.env`
-file (or set as a regular environment variable), before this provider will work.
+Next, we will configure your App permissions (this requires Admin access on Entra). Head under your app's API permissions page and select Add a permission > Microsoft Graph. From here, select either Application of Delegated permissions as required, and check the following permissions:
 
-For this to work, you will need to configure the redirect URL in Microsoft 365 Admin. The value
-passed by this search provider in the OAuth2 URL must match an allowed redirect URL configured
-in the Microsoft 365 Admin page. For local development, redirect URL is `http://localhost:5000/token`.
-For production use, the redirect URL must be configured with the appropriate hostname, by setting
-the `OUTLOOK_REDIRECT_URI` environment variable.
+- `offline_access` (only if using Delegated)
+- `Application.Read.All`
+- `Files.ReadWrite.All` (MSFT requires this to enable search, though this connector will never write anything)
 
-After the client has been created, you will need to grant admin consent to the client. One
-way to do this is by going to the following URL:
+Go back to API permissions, and as an Admin, select Grant admin consent for MSFT.
 
-https://login.microsoftonline.com/{site_id}/adminconsent?client_id={client_id}&redirect_uri=http://localhost/
+Then, head to Certificates & Secrets and create a new client secret.
 
-You must replace `{site_id}` and `{client_id}` with the appropriate values. The `redirect_uri`
-must match the value that was configured when creating the client in Microsoft Entra.
+The above environment variables can be read from a .env file. See `.env-template` for an example `.env` file.
 
-It is important to note that this search provider requires delegated access to MS Graph API, that is
-associated with a specific user account. This will be the user that is logged into Microsoft 365
-when http://localhost:5000/authorize is opened in the browser. A consequence of requiring delegated
-access is that the access token is only valid for approximately 1.5 hours. It is not possible to use
-an indefinite access token or client / secret, and this provider needs to use refresh tokens.
+2. Authentication
 
-If it is not working, you may need to go to http://localhost:5000/authorize, and copy the credential
-into `.env` again.
+We will now cover the two types of authentication supported by this connector. To use either type of authentication, specify the `MSGRAPH_AUTH_TYPE` environment variable as either `application` for App auth, or `user` for Delegated auth.
+
+### Application authentication
+
+For application authentication, you will need to setup the following environment variables in a `.env` file:
+
+```bash
+MSGRAPH_AUTH_TYPE=application
+MSGRAPH_CLIENT_ID=<obtainable from app details>
+MSGRAPH_CLIENT_SECRET=<obtainable from app credentials>
+MSGRAPH_TENANT_ID=<obtainable from app details>
+```
+
+### Delegated authentication
+
+For delegated authentication, you will need to add the following environment variable in a `.env` file:
+
+```bash
+MSGRAPH_AUTH_TYPE=user
+```
+
+Other than that, no configuration is needed. When registering the connector you will specify all the details required for Cohere to handle the authentication steps (details to follow).
+
+To configure delegated user OAuth, make sure the app you registered in Step 1 has a Redirect URI to `https://api.cohere.com/v1/connectors/oauth/token`.
+
+Next, register the connector with Cohere's API using the following configuration.
+
+```bash
+ curl  -X POST \
+   'https://api.cohere.ai/v1/connectors' \
+   --header 'Accept: */*' \
+   --header 'Authorization: Bearer {COHERE-API-KEY}' \
+   --header 'Content-Type: application/json' \
+   --data-raw '{
+   "name": "MS Graph with OAuth",
+   "url": "{YOUR_CONNECTOR-URL}",
+   "oauth": {
+     "client_id": "{Your Microsoft App CLIENT-ID}",
+     "client_secret": "{Your Microsoft App CLIENT-SECRET}",
+     "authorize_url": "https://login.microsoftonline.com/{Your Microsoft App TENANT-ID}/oauth2/v2.0/authorize",
+     "token_url": "https://login.microsoftonline.com/{Your Microsoft App TENANT-ID}/oauth2/v2.0/token",
+     "scope": ".default offline_access"
+   }
+ }'
+```
+
+Once properly registered, whenever a search request is made Cohere will take care of authorizing the current user and passing the correct access tokens in the request headers.
+
+### Provision Unstructured
+
+Processing the files found on OneDrive requires the Unstructured API. The Unstructured API is
+a commercially backed, Open Source project. It is available as a hosted API, Docker image, and as a
+Python package, which can be manually set up.
+
+To configure Unstructured, setup these two environment variables:
+
+```bash
+MSGRAPH_UNSTRUCTURED_BASE_URL=https://api.unstructured.io
+MSGRAPH_UNSTRUCTURED_API_KEY=(optional)
+```
+
+By default, this connector uses the hosted `https://api.unstructured.io` API that requires an API key obtainable by registering an account [here](https://unstructured.io/api-key).
+
+Alternatively, you can use the API by hosting it yourself with their provided Docker image. If you've used Docker before, the setup is relatively straightforward. Please follow the instructions for setting up the Docker image in the Unstructured [documentation](https://unstructured-io.github.io/unstructured/api.html#using-docker-images). With this self-hosted option, no API key is required.
 
 ## Development
 
