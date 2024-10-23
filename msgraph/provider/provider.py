@@ -25,7 +25,7 @@ def search(query, access_token=None):
 
 
 def build_query(query):
-    stripped_query = re.sub("\W+", " ", query)
+    stripped_query = re.sub(r"\W+", " ", query)
     return remove_stopwords(stripped_query)
 
 
