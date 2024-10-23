@@ -160,12 +160,6 @@ def serialize_item(item):
     if not file_extension:
         return None  # Ignore files without extensions
 
-    passthrough_file_types = (
-        os.environ.get("MSGRAPH_PASSTHROUGH_FILE_TYPES").split(",")
-        if os.environ.get("MSGRAPH_PASSTHROUGH_FILE_TYPES")
-        else []
-    )
-
     data = {}
 
     if (resource := item["hit"].get("resource")) is not None:
