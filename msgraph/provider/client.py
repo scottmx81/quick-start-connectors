@@ -2,8 +2,8 @@ import os
 import requests
 
 from msal import ConfidentialClientApplication
-from flask import current_app as app
 
+from . import async_download
 from .exceptions import UpstreamProviderError
 
 AUTHORIZATION_HEADER = "Authorization"
@@ -91,12 +91,18 @@ class GraphClient:
 
         return response.content
 
+    def download_content(self, ids_to_urls):
+        return async_download.perform(ids_to_urls, self.access_token)
+
 
 def get_client(access_token=None):
     auth_type = os.environ.get("AUTH_TYPE")
 
     if auth_type:
-        assert auth_type in [GraphClient.SERVICE_AUTH, GraphClient.OAUTH], "Invalid MSGRAPH_AUTH_TYPE value"
+        assert auth_type in [
+            GraphClient.SERVICE_AUTH,
+            GraphClient.OAUTH,
+        ], "Invalid MSGRAPH_AUTH_TYPE value"
     else:
         auth_type = GraphClient.OAUTH
 

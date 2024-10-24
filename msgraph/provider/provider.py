@@ -33,7 +33,7 @@ def remove_stopwords(query: str):
     words = word_tokenize(query)
     stop_words = set(stopwords.words("english"))
     stop_words.update(EXTENDED_STOPWORDS)
-    return ' '.join([word for word in words if word.lower() not in stop_words])
+    return " ".join([word for word in words if word.lower() not in stop_words])
 
 
 def process_data_with_service(search_response, client):
@@ -55,6 +55,7 @@ def collect_hits(search_response):
 def collect_items(graph_client, hits):
     items = []
     search_limit = app.config.get("SEARCH_LIMIT", 8)
+    downloadable_resources = []
 
     for hit in hits:
         if hit["resource"]["@odata.type"] == graph_client.DRIVE_ITEM_DATA_TYPE:
@@ -62,17 +63,32 @@ def collect_items(graph_client, hits):
             resource_id = hit["resource"]["id"]
 
             if not is_usable_drive_item(hit):
-                logger.info(f"Skipping {hit["resource"]["name"]}")
+                logger.info(f"Skipping {hit['resource']['name']}")
                 continue
 
-            logger.info(f"Found usable drive item: {hit["resource"]["name"]}")
+            logger.info(f"Found usable drive item: {hit['resource']['name']}")
 
-            drive_item = graph_client.get_drive_item_content(
-                parent_drive_id, resource_id
+            downloadable_resources.append(
+                {
+                    "hit": hit,
+                    "url": f"{graph_client.BASE_URL}/drives/{parent_drive_id}/items/{resource_id}/content",
+                }
             )
 
-            if drive_item:
-                items.append({"hit": hit, "content": drive_item})
+    if downloadable_resources:
+        ids_to_hits = {
+            downloadable_resource["hit"]["hitId"]: downloadable_resource["hit"]
+            for downloadable_resource in downloadable_resources
+        }
+        ids_to_urls = {
+            downloadable_resource["hit"]["hitId"]: downloadable_resource["url"]
+            for downloadable_resource in downloadable_resources
+        }
+
+        ids_to_content = graph_client.download_content(ids_to_urls)
+
+        for id in ids_to_hits:
+            items.append({"hit": ids_to_hits[id], "content": ids_to_content[id]})
 
     return items[:search_limit]
 
@@ -95,7 +111,10 @@ def is_usable_drive_item(hit):
     if not file_extension:
         return False
 
-    if file_extension not in unstructured_file_types and file_extension not in passthrough_file_types:
+    if (
+        file_extension not in unstructured_file_types
+        and file_extension not in passthrough_file_types
+    ):
         return False
 
     return True
@@ -103,7 +122,11 @@ def is_usable_drive_item(hit):
 
 def process_items_with_unstructured(items):
     files = [
-        (item["hit"]["resource"]["id"], item["hit"]["resource"]["name"], item["content"])
+        (
+            item["hit"]["resource"]["id"],
+            item["hit"]["resource"]["name"],
+            item["content"],
+        )
         for item in items
     ]
     for file in files:
@@ -111,16 +134,17 @@ def process_items_with_unstructured(items):
 
     if not len(files):
         return
-    
+
     logger.info("Found files.")
     unstructured_client = get_unstructured_client()
     unstructured_client.start_session()
     unstructured_content = unstructured_client.batch_get(files)
 
     for item in items:
-        if item['hit']['resource']['name'] in unstructured_content:
-            unstructured_text = 'loop over unstructuredcontent here'
+        if item["hit"]["resource"]["name"] in unstructured_content:
+            unstructured_text = "loop over unstructuredcontent here"
             item["text"] = unstructured_text
+
 
 def serialize_results(items):
     results = []

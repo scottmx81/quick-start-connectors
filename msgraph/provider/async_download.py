@@ -30,7 +30,7 @@ async def _download(
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
         async with session.get(url, headers=headers, timeout=TIMEOUT) as response:
-            return {id: await response.text()}
+            return {id: await response.content.read()}
     except Exception as e:
         logger.error(f"Error fetching {url}: {e}")
         return {}
