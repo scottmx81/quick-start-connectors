@@ -65,6 +65,7 @@ class UnstructuredRequestSession:
         # Use FormData to pass in files parameter
         data = aiohttp.FormData()
         data.add_field("files", file_data, filename=file_name)
+        data.add_field("strategy", "fast")
 
         # API key optional if self-hosted
         headers = {} if self.api_key is None else {"unstructured-api-key": self.api_key}
