@@ -89,16 +89,20 @@ Processing the files found on OneDrive requires the Unstructured API. The Unstru
 a commercially backed, Open Source project. It is available as a hosted API, Docker image, and as a
 Python package, which can be manually set up.
 
-To configure Unstructured, setup these two environment variables:
+To configure Unstructured, setup these three environment variables:
 
 ```bash
 MSGRAPH_UNSTRUCTURED_BASE_URL=https://api.unstructured.io
 MSGRAPH_UNSTRUCTURED_API_KEY=(optional)
+MSGRAPH_UNSTRUCTURED_MAX_SIZE(optional)
 ```
 
 By default, this connector uses the hosted `https://api.unstructured.io` API that requires an API key obtainable by registering an account [here](https://unstructured.io/api-key).
 
 Alternatively, you can use the API by hosting it yourself with their provided Docker image. If you've used Docker before, the setup is relatively straightforward. Please follow the instructions for setting up the Docker image in the Unstructured [documentation](https://unstructured-io.github.io/unstructured/api.html#using-docker-images). With this self-hosted option, no API key is required.
+
+The maximum file size that will be sent to Unstructured is set with `MSGRAPH_UNSTRUCTURED_MAX_SIZE`. This is useful to
+limit timeout errors. The default is 1000000 and must be specified in bytes.
 
 ## Development
 

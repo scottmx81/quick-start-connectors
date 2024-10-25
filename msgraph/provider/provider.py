@@ -117,7 +117,9 @@ def is_usable_drive_item(hit):
     ):
         return False
 
-    if hit["resource"]["size"] > 1_000_000:
+    max_size = int(app.config.get("UNSTRUCTURED_MAX_SIZE", 1_000_000))
+
+    if hit["resource"]["size"] > max_size:
         logger.info(f"Ignoring oversized drive item ({hit['resource']['size']} bytes)")
         return False
 
