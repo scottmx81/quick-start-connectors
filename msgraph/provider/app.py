@@ -25,7 +25,6 @@ def get_access_token() -> str | None:
 
 
 def search(body):
-    logger.info('got search request')
     try:
         data = provider.search(body["query"], get_access_token())
     except UpstreamProviderError as error:
