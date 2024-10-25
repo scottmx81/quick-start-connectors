@@ -117,6 +117,10 @@ def is_usable_drive_item(hit):
     ):
         return False
 
+    if hit["resource"]["size"] > 1_000_000:
+        logger.info(f"Ignoring oversized drive item ({hit['resource']['size']} bytes)")
+        return False
+
     return True
 
 
@@ -129,22 +133,22 @@ def process_items_with_unstructured(items):
         )
         for item in items
     ]
-    for file in files:
-        logger.info(f"Check with unstructured: {file[1]}")
 
     if not len(files):
         return
 
-    logger.info("Found files.")
+    for file in files:
+        logger.info(f"Process with Unstructured: {file[1]}")
+
     unstructured_client = get_unstructured_client()
     unstructured_client.start_session()
     unstructured_content = unstructured_client.batch_get(files)
 
+    logger.info("Done processing with Unstructured")
+
     for item in items:
         if item["hit"]["resource"]["name"] in unstructured_content:
-            unstructured_text = "loop over unstructuredcontent here"
-            item["text"] = unstructured_text
-
+            item["text"] = ' '.join([part["text"] for part in unstructured_content[item["hit"]["resource"]["name"]]])
 
 def serialize_results(items):
     results = []
@@ -189,7 +193,9 @@ def serialize_item(item):
     if (resource := item["hit"].get("resource")) is not None:
         data = serialize_metadata(resource)
 
-    if item["content"] is not None:
+    data["text"] = item.get("text")
+
+    if not data["text"] and item["content"] is not None:
         try:
             data["text"] = item["content"].decode("utf-8")
         except:
